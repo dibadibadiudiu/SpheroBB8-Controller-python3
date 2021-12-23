@@ -1,0 +1,56 @@
+# coding=UTF-8
+#!/usr/bin/python
+from bluepy import btle
+import struct
+import time
+import BB8_driver
+import sys
+import json
+
+from SimpleWebSocketServer import SimpleWebSocketServer, WebSocket
+
+class SimpleEcho(WebSocket):
+    
+    bb8 = 0
+    bb8State = 0
+    user = 0
+        
+    def startBB8(self):
+        print('connect bb8...') 
+        self.bb8 = BB8_driver.Sphero()
+        self.bb8.connect()
+        self.bb8.start()
+        self.bb8State = 1
+	time.sleep(2)
+
+    def colseBB8(self):
+	self.bb8.disconnect()
+        #sys.exit(1)
+
+    def handleMessage(self):
+        # echo message back to client
+        print(self.data)
+        data = json.loads(self.data)
+        if data["type"] == 'start':
+            if self.bb8State == 0:
+                self.startBB8()
+                self.sendMessage('bb8ready')
+        if data["type"] == 'close':
+            self.colseBB8()
+        if data["type"] == 'control':
+            time.sleep(1)
+            self.bb8.roll(data["speed"],data["angle"],01,False)
+
+    def handleConnected(self):
+        print(self.address, 'connected')
+        self.user+=1
+        print('当前在线人数',self.user)
+
+    def handleClose(self):
+        print(self.address, 'closed')
+        self.user-=1
+
+server = SimpleWebSocketServer('0.0.0.0', 888, SimpleEcho)
+server.serveforever()
+
+
